@@ -12,24 +12,69 @@ import {
 
 import HttpClient from '../common/HTTPClient';
 
+import 'dotenv/config';
+import { URLSearchParams } from 'url';
+
+const accountId: string = process.env.PK_TEST!;
+const apiKey: string = process.env.SK_TEST!;
+
 const StripeConnection: ProcessorConnection<APIKeyCredentials, CardDetails> = {
   name: 'STRIPE',
 
   website: 'stripe.com',
 
   configuration: {
-    accountId: '...Find a unique ID for the accounnt annd put it here...',
-    apiKey: '...Paste your stripe API key here...',
+    accountId: accountId,
+    apiKey: apiKey,
   },
 
   /**
    *
    * You should authorize a transaction and return an appropriate response
    */
-  authorize(
+  async authorize(
     request: RawAuthorizationRequest<APIKeyCredentials, CardDetails>,
   ): Promise<ParsedAuthorizationResponse> {
+
+    interface IHTTPRequest<T> {
+      method: T;
+      headers?: { [x: string]: string };
+    };
+
+    type HTTPRequest = (IHTTPRequest<'post'> & { body: string });
+
+    console.log('REQUEST IS');
+    console.log(request);
+
+    const headers = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization: `Bearer ${request.processorConfig.apiKey}`,
+    };
+
+    const url = 'https://api.stripe.com/v1/payment_intents';
+
+    const urlSearchParams = new URLSearchParams({ 
+        'amount': '2000', 
+        'currency': 'gbp', 
+        'payment_method_types[]': ['card']
+    });
+
+    const options: HTTPRequest = { 
+      method: 'post', 
+      headers: headers, 
+      body: urlSearchParams.toString() 
+    };
+
+    const authorizationResponse = await HttpClient.request(url, options);
+    console.log(authorizationResponse);
+    function parseAuthorizationResponse(authorizationResponse) {
+      console.log('PRINT PI')
+      console.log(JSON.parse(authorizationResponse.responseText).client_secret)
+      // { processorTransactionId: authorizationResponse.client_secret }
+    }
+    parseAuthorizationResponse(authorizationResponse);
     throw new Error('Method Not Implemented');
+    // return new Promise(parseAuthorizationResponse(authorizationResponse));
   },
 
   /**
