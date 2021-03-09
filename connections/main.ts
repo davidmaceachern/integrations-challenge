@@ -8,10 +8,10 @@ import StripeConnection from './Stripe';
 (async () => {
   console.log('\n=== TEST: authorization ===');
   await testAuthTransaction();
-  // console.log('\n=== TEST: capture ===');
-  // await testCaptureTransaction();
-  // console.log('\n=== TEST: cancel ===');
-  // await testCancelTransaction();
+  console.log('\n=== TEST: capture ===');
+  await testCaptureTransaction();
+  console.log('\n=== TEST: cancel ===');
+  await testCancelTransaction();
 })();
 
 async function testAuthTransaction(): Promise<ParsedAuthorizationResponse> {

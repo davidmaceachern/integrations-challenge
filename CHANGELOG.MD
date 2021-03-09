@@ -1,5 +1,34 @@
 # Changelog
 
+#### 2021, Tue, Mar 9
+
+1. Working on Authorization:
+    * Returning parsed authorization response. The test handles `failed` and `declined` responses but it does not assert that they occur. We would need to update the test with transaction details found [here](https://stripe.com/docs/testing#cards-responses) to be able to test how the integration handles `failed` and `declined` responses. I am going to assume that we want to make the test pass before we consider other application states, given we have two other pieces of functionality to investigate today.
+    * Making payment method without payment method. Looks like we need to determine what transaction state will be. When we create a payment intent without a payment method it's available in Stripe system to interact with but is in state `incomplete`.
+    * Considering the capture and cancel steps that need to be completed, let's pass the parameters required when authorizing a transaction to allow capturing, and then go on cancel the transaction as well.
+    * Completed Authorization, taking given paramters in test, and setting to manual to enable capturing.
+2. Working on Capturing payment:
+    * I'm anticipating there'll be an issue we haven't considered such as the need to give a payment method, let's go ahead and see what we find. 
+    * uncomment the tests for the capture method. We keep the first test running because we need to know if we break existing functionality.
+    * Trying to make an initial request. As was suspected encountered `"message": "This PaymentIntent could not be captured because it has a status of requires_payment_method. Only a PaymentIntent with one of the following statuses may be captured: requires_capture."` which indicates the payment intent needs an additional step before capture.
+    * Default behaviour is to await confirmation, we need to set payment confirm to `true` for the intent to be moved to a capturable state, [docs](https://stripe.com/docs/api/payment_intents/create#create_payment_intent-confirm).
+    * Probably going to break the authorize function by making this work. Yup. Ok passing specific payment method value during the authorization step appears to work. More details about payment methods are available [here](https://stripe.com/docs/payments/payment-methods/transitioning#transitioning)
+    * Suddenly thinking about security, as I'm working to figure out how to include payment method details the test provides in the authorization step it might not be a good idea to send someone's senstitive credit card details via a URL. Need to verify what the best practice for this is.
+    * Sidenote: [Here](https://stripe.com/en-fr/payments/payment-methods-guide) can be found some details about which PSP's support which currencies. This might be something to consider if the Primer platform needs to support failing over between PSP's.
+    * Ok attempting to create a payment method object using the paymentmethods API found [here](https://stripe.com/docs/api/payment_methods/create)
+    * I wonder how many transaction this will take for me to complete!
+    * Capture test criteria met, time to move onto cancelling transaction.
+3. Working on Cancelling method:
+    * It's possible for the customer to provide a cancellation reason. Given Primer is offering fraud provider integrations, this flag might be useful to support as part of this connection. Or additionally if the payment is abandoned.
+    * Apparently American English more commonly uses `canceled` as opposed to `cancelled`.
+4. Tidying up:
+    * Whilst tidying up types, came across 
+      > When providing a card number, you must meet the requirements for PCI compliance. We strongly recommend using Stripe.js instead of interacting with this API directly [link to docs](https://stripe.com/docs/security#validating-pci-compliance).
+    * As I suspected Primer needs to be PCI Compliant, and to do so we need to think about [securing our sessions with SSL/TLS](https://stripe.com/docs/security/guide#setting-up-tls)
+
+10. Next steps:
+    * Create tests for the missing Authorization states.
+
 #### 2021, Mon, Mar 8 
 
 1. Getting Started:
@@ -62,7 +91,7 @@
             
             ## Edge cases
             1. Only card payments support separate authorization and capture. Other payment methods (e.g., ACH or iDEAL) cannot be first authorized and then captured, read more [here](https://stripe.com/docs/payments/capture-later#cancel-authorization).
-            2. It's possible for refunds to fail and we would need to add a process that can receieve a webhook to support this edge case, read more [here](https://stripe.com/docs/refunds#failed-refunds)
+            2. It's possible for refunds to fail and we would need to add a process that can receive a webhook to support this edge case, read more [here](https://stripe.com/docs/refunds#failed-refunds)
     * Essentially a client that uses stripe might have various use cases. 
         1. They might offer in store/person machine transactions that need to be captured within 24 hours.
         2. They might sell a service, or have a workflow that involves holding the money before capturing it.
@@ -79,6 +108,7 @@
 6. Implementing the methods in `Stripe.ts`, commenting out other tests in `main.ts` so we only focus on one test at a time.
     * Installed [watchexec](https://github.com/watchexec/watchexec)
     * We can now run `watchexec -w ./connections/Stripe.ts -- yarn start:processors` and have the test suite run on each save of `Stripe.ts`.
+    * Noted that Stripe's API returns a `docs_url` in response for bad requests which is a really helpful way to provide more details in addition to helpful error messages.
     
 
 

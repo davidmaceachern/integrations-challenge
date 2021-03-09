@@ -5,11 +5,11 @@ interface IHTTPRequest<T> {
   headers?: { [x: string]: string };
 }
 
-type HTTPRequest =
+export type HTTPRequest =
   | IHTTPRequest<'get'>
   | (IHTTPRequest<'post' | 'put' | 'patch'> & { body: string });
 
-interface HTTPResponse {
+export interface HTTPResponse {
   statusCode: number;
   responseText: string;
 }

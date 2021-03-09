@@ -11,6 +11,10 @@ import {
 } from '@primer-io/app-framework';
 
 import HttpClient from '../common/HTTPClient';
+import { 
+  HTTPRequest, 
+  HTTPResponse 
+} from '../common/HTTPClient';
 
 import 'dotenv/config';
 import { URLSearchParams } from 'url';
@@ -36,65 +40,141 @@ const StripeConnection: ProcessorConnection<APIKeyCredentials, CardDetails> = {
     request: RawAuthorizationRequest<APIKeyCredentials, CardDetails>,
   ): Promise<ParsedAuthorizationResponse> {
 
-    interface IHTTPRequest<T> {
-      method: T;
-      headers?: { [x: string]: string };
-    };
-
-    type HTTPRequest = (IHTTPRequest<'post'> & { body: string });
-
-    console.log('REQUEST IS');
-    console.log(request);
-
     const headers = {
       'Content-Type': 'application/x-www-form-urlencoded',
       Authorization: `Bearer ${request.processorConfig.apiKey}`,
     };
 
-    const url = 'https://api.stripe.com/v1/payment_intents';
+    async function getPaymentMethodId(paymentMethodDetails): Promise<string> {
+      
+      const url: string = 'https://api.stripe.com/v1/payment_methods';
 
-    const urlSearchParams = new URLSearchParams({ 
-        'amount': '2000', 
-        'currency': 'gbp', 
-        'payment_method_types[]': ['card']
+      const urlSearchParams = new URLSearchParams({
+        'type': 'card',
+        'card[number]': paymentMethodDetails.cardNumber,
+        'card[exp_month]': paymentMethodDetails.expiryMonth,
+        'card[exp_year]': paymentMethodDetails.expiryYear,
+        'card[cvc]': paymentMethodDetails.cvv
+      });
+
+      const options: HTTPRequest = {
+        method: 'post',
+        headers: headers,
+        body: urlSearchParams.toString()
+      };
+
+      const response: HTTPResponse = await HttpClient.request(url, options);
+      const paymentMethodId: string = JSON.parse(response.responseText).id;
+
+      return paymentMethodId
+    }
+
+    const paymentMethodId: string = await getPaymentMethodId(request.paymentMethod);
+
+    const url: string = 'https://api.stripe.com/v1/payment_intents';
+
+    const urlSearchParams: URLSearchParams = new URLSearchParams({
+      'amount': request.amount.toString(),
+      'currency': request.currencyCode,
+      'capture_method': 'manual',
+      'confirm': 'true',
+      'payment_method_types[]': ['card'],
+      'payment_method': paymentMethodId
     });
 
-    const options: HTTPRequest = { 
-      method: 'post', 
-      headers: headers, 
-      body: urlSearchParams.toString() 
+    const options: HTTPRequest = {
+      method: 'post',
+      headers: headers,
+      body: urlSearchParams.toString()
     };
 
-    const authorizationResponse = await HttpClient.request(url, options);
-    console.log(authorizationResponse);
-    function parseAuthorizationResponse(authorizationResponse) {
-      console.log('PRINT PI')
-      console.log(JSON.parse(authorizationResponse.responseText).client_secret)
-      // { processorTransactionId: authorizationResponse.client_secret }
-    }
-    parseAuthorizationResponse(authorizationResponse);
-    throw new Error('Method Not Implemented');
-    // return new Promise(parseAuthorizationResponse(authorizationResponse));
+    const authorizationResponse: HTTPResponse = await HttpClient.request(url, options);
+
+    function parseAuthorizationResponse(authorizationResponse: HTTPResponse): ParsedAuthorizationResponse {
+      const jsonAuthorizationResponseText = JSON.parse(authorizationResponse.responseText);
+      if (authorizationResponse.statusCode == 200 && jsonAuthorizationResponseText.status === "requires_capture") {
+        return { processorTransactionId: jsonAuthorizationResponseText.id, transactionStatus: 'AUTHORIZED' }
+      } else {
+        return { errorMessage: 'There was a problem', transactionStatus: 'FAILED' }
+      }
+    };
+
+    const parsedAuthorizationResponse: ParsedAuthorizationResponse = parseAuthorizationResponse(authorizationResponse);
+    return parsedAuthorizationResponse;
   },
 
   /**
    * Capture a payment intent
    * This method should capture the funds on an authorized transaction
    */
-  capture(
+  async capture(
     request: RawCaptureRequest<APIKeyCredentials>,
   ): Promise<ParsedCaptureResponse> {
-    throw new Error('Method Not Implemented');
+
+    const headers = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization: `Bearer ${request.processorConfig.apiKey}`,
+    };
+
+    const url: string = `https://api.stripe.com/v1/payment_intents/${request.processorTransactionId}/capture`;
+
+    const options: HTTPRequest = {
+      method: 'post',
+      headers: headers,
+      body: ''
+    };
+
+    const captureResponse: HTTPResponse = await HttpClient.request(url, options);
+
+    function parseCaptureResponse(captureResponse: HTTPResponse): ParsedCaptureResponse {
+      const jsonCaptureResponseText = JSON.parse(captureResponse.responseText);
+      if (captureResponse.statusCode == 200 && jsonCaptureResponseText.status == 'succeeded') {
+        return { transactionStatus: 'SETTLED' };
+      } else {
+        return { errorMessage: 'There was a problem', transactionStatus: 'FAILED' }
+      }
+    };
+
+    const parsedCaptureResponse: ParsedCaptureResponse = parseCaptureResponse(captureResponse);
+
+    return parsedCaptureResponse;
   },
 
   /**
    * Cancel a payment intent
    * This one should cancel an authorized transaction
    */
-  cancel(
+  async cancel(
     request: RawCancelRequest<APIKeyCredentials>,
   ): Promise<ParsedCancelResponse> {
-    throw new Error('Method Not Implemented');
+
+    const headers = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization: `Bearer ${request.processorConfig.apiKey}`,
+    };
+
+    const url: string = `https://api.stripe.com/v1/payment_intents/${request.processorTransactionId}/cancel`;
+
+    const options: HTTPRequest = {
+      method: 'post',
+      headers: headers,
+      body: ''
+    };
+
+    const cancelResponse: HTTPResponse = await HttpClient.request(url, options);
+
+    function parseCancelResponse(cancelResponse: HTTPResponse): ParsedCancelResponse {
+      const jsonCancelResponseText = JSON.parse(cancelResponse.responseText);
+      if (cancelResponse.statusCode == 200 && jsonCancelResponseText.status == 'canceled') {
+        return { transactionStatus: 'CANCELLED' };
+      } else {
+        return { errorMessage: 'There was a problem', transactionStatus: 'FAILED' }
+      }
+    };
+
+    const parsedCancelResponse: ParsedCancelResponse = parseCancelResponse(cancelResponse);
+
+    return parsedCancelResponse;
   },
 };
 
