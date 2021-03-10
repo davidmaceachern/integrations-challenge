@@ -1,5 +1,5 @@
 <div align="center">
-[![Social banner for Primer](https://raw.githubusercontent.com/primer-api/primer-api/main/header.png)](https://primer.io)
+    <img src="https://raw.githubusercontent.com/primer-api/primer-api/main/header.png" alt="Social banner for Primer">
 </div>
 
 <h1 align="center">
@@ -101,15 +101,14 @@ The workflow that was developed to meet the assertions in the `main.ts` test sui
 ![workflow](./workflow.png)
 
 ## 🔬 Summarised Findings
-- Not all payment methods support being captured later.
 - For in-person payment methods made with a Terminal the PaymentIntent must be captured within 24 hours.
 - Uncaptured payment intents are automatically cancelled after 7 days after creation.
-- Only card payments support separate authorization and capture. Other payment methods (e.g., ACH or iDEAL) cannot be first authorized and then captured, read more [here](https://stripe.com/docs/payments/capture-later#cancel-authorization).
-- It's possible for refunds to fail and we would need to add a process that can receive a webhook to support this edge case, read more [here](https://stripe.com/docs/refunds#failed-refunds
+- Not all payment methods support being captured later, only card payments support separate authorization and capture. Other payment methods (e.g., ACH or iDEAL) cannot be first authorized and then captured, read more [here](https://stripe.com/docs/payments/capture-later#cancel-authorization).
+- It's possible for refunds to fail and we would need to add a process that can receive a webhook to support this edge case, read more [here](https://stripe.com/docs/refunds#failed-refunds)
 - Primer needs to be PCI Compliant, and to do so we need to think about [securing our sessions with SSL/TLS](https://stripe.com/docs/security/guide#setting-up-tls), or understanding how we can enable merchants to do so. We also need to secure connection that is made with Stripe's platform[link to docs](https://stripe.com/docs/security#validating-pci-compliance).
 - [Here](https://stripe.com/en-fr/payments/payment-methods-guide) can be found some details about which PSP's support which currencies, might be helpful to provide PSP failover.
 - It's possible for the customer to provide a cancellation reason. Given Primer is offering fraud provider integrations, this flag might be useful to support as part of this connection. Or additionally if the payment is abandoned
-- A client that uses stripe might have various use cases. 
+- A client that uses stripe might have various use cases:
     1. They might offer in store/person machine transactions that need to be captured within 24 hours.
     2. They might sell a service, or have a workflow that involves holding the money before capturing it.
     3. They might sell something where they need to collect the money immediately when the authorization step is performed.
