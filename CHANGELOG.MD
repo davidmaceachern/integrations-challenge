@@ -25,9 +25,11 @@
     * Whilst tidying up types, came across 
       > When providing a card number, you must meet the requirements for PCI compliance. We strongly recommend using Stripe.js instead of interacting with this API directly [link to docs](https://stripe.com/docs/security#validating-pci-compliance).
     * As I suspected Primer needs to be PCI Compliant, and to do so we need to think about [securing our sessions with SSL/TLS](https://stripe.com/docs/security/guide#setting-up-tls)
+    * Pushed for the day.
 
 10. Next steps:
     * Create tests for the missing Authorization states.
+    * Refactor
 
 #### 2021, Mon, Mar 8 
 
@@ -101,7 +103,7 @@
     * Using a rest client such as [Insomnia](https://insomnia.rest/), made some calls to the Stripe API to test it out. Useful for checking status of requests made as we write the code.
 5. Working with main.ts:
     * In the order of the tests, auth, capture, and cancel.
-        * Auth Test - Attempt to authorize a transaction for 100GBP, exit if error encountered, or if either failed or declined occurred otherwise return response. 
+        * Auth Test - Attempt to authorize a transaction for 10GBP, exit if error encountered, or if either failed or declined occurred otherwise return response. 
         * Capture test - Authorize Transaction and exit if not authorized. Continue attempt to capture and assert that transaction was settled. 
         * Cancel test - first authorize a transaction and exit if problem authorizing. Then call our cancel function exiting if an error occurs. Assertion will be printed if the transaction was not cancelled as expected
     * Assuming that the `main.ts` is the test suite that the `Stripe.ts` methods should be implemented against, there might be an issue with the transaction flow because as discovered whilst researching the transaction lifecycle an authorization can have a capture method of `automatic` or `manual`, with the default being automatic. This means the test data might not cover both eventualities, we either need to validate the requirements with what the user will expect to be able to do (speak to a user or business owner) or determine how we can handle this in `Stripe.ts` potentially only implementing one option for the purposes of this technical test.
@@ -110,10 +112,3 @@
     * We can now run `watchexec -w ./connections/Stripe.ts -- yarn start:processors` and have the test suite run on each save of `Stripe.ts`.
     * Noted that Stripe's API returns a `docs_url` in response for bad requests which is a really helpful way to provide more details in addition to helpful error messages.
     
-
-
-## Tasks
-- [x]  Add your sandbox credentials to `Stripe.ts`
-- [ ] Implement the `authorize()` method in `Stripe.ts`
-- [ ] Implement the `capture()` method in `Stripe.ts`
-- [ ] Implement the `cancel()` method in `Stripe.ts`
