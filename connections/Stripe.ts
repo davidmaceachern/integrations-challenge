@@ -11,9 +11,9 @@ import {
 } from '@primer-io/app-framework';
 
 import HttpClient from '../common/HTTPClient';
-import { 
-  HTTPRequest, 
-  HTTPResponse 
+import {
+  HTTPRequest,
+  HTTPResponse
 } from '../common/HTTPClient';
 
 import 'dotenv/config';
@@ -21,6 +21,13 @@ import { URLSearchParams } from 'url';
 
 const accountId: string = process.env.PK_TEST!;
 const apiKey: string = process.env.SK_TEST!;
+
+const lookUpTransactionStatus = {
+  'requires_capture': 'AUTHORIZED',
+  'card_declined': 'DECLINED',
+  'succeeded': 'SETTLED',
+  'canceled': 'CANCELLED',
+};
 
 const StripeConnection: ProcessorConnection<APIKeyCredentials, CardDetails> = {
   name: 'STRIPE',
@@ -46,7 +53,7 @@ const StripeConnection: ProcessorConnection<APIKeyCredentials, CardDetails> = {
     };
 
     async function getPaymentMethodId(paymentMethodDetails): Promise<string> {
-      
+
       const url: string = 'https://api.stripe.com/v1/payment_methods';
 
       const urlSearchParams = new URLSearchParams({
@@ -91,14 +98,17 @@ const StripeConnection: ProcessorConnection<APIKeyCredentials, CardDetails> = {
     const authorizationResponse: HTTPResponse = await HttpClient.request(url, options);
 
     function parseAuthorizationResponse(authorizationResponse: HTTPResponse): ParsedAuthorizationResponse {
+
       const jsonAuthorizationResponseText = JSON.parse(authorizationResponse.responseText);
       if (authorizationResponse.statusCode == 200 && jsonAuthorizationResponseText.status === "requires_capture") {
-        return { processorTransactionId: jsonAuthorizationResponseText.id, transactionStatus: 'AUTHORIZED' }
+        return { processorTransactionId: jsonAuthorizationResponseText.id, transactionStatus: lookUpTransactionStatus[jsonAuthorizationResponseText.status] }
+      }
+      else if (jsonAuthorizationResponseText.error.code === 'card_declined' && jsonAuthorizationResponseText.error.decline_code === 'insufficient_funds') {
+        return { transactionStatus: lookUpTransactionStatus[jsonAuthorizationResponseText.error.code], declineReason: 'INSUFFICIENT_FUNDS' }
       } else {
         return { errorMessage: 'There was a problem', transactionStatus: 'FAILED' }
       }
     };
-
     const parsedAuthorizationResponse: ParsedAuthorizationResponse = parseAuthorizationResponse(authorizationResponse);
     return parsedAuthorizationResponse;
   },
@@ -129,7 +139,7 @@ const StripeConnection: ProcessorConnection<APIKeyCredentials, CardDetails> = {
     function parseCaptureResponse(captureResponse: HTTPResponse): ParsedCaptureResponse {
       const jsonCaptureResponseText = JSON.parse(captureResponse.responseText);
       if (captureResponse.statusCode == 200 && jsonCaptureResponseText.status == 'succeeded') {
-        return { transactionStatus: 'SETTLED' };
+        return { transactionStatus: lookUpTransactionStatus[jsonCaptureResponseText.status] };
       } else {
         return { errorMessage: 'There was a problem', transactionStatus: 'FAILED' }
       }
@@ -166,7 +176,7 @@ const StripeConnection: ProcessorConnection<APIKeyCredentials, CardDetails> = {
     function parseCancelResponse(cancelResponse: HTTPResponse): ParsedCancelResponse {
       const jsonCancelResponseText = JSON.parse(cancelResponse.responseText);
       if (cancelResponse.statusCode == 200 && jsonCancelResponseText.status == 'canceled') {
-        return { transactionStatus: 'CANCELLED' };
+        return { transactionStatus: lookUpTransactionStatus[jsonCancelResponseText.status] };
       } else {
         return { errorMessage: 'There was a problem', transactionStatus: 'FAILED' }
       }

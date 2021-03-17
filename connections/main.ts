@@ -12,6 +12,8 @@ import StripeConnection from './Stripe';
   await testCaptureTransaction();
   console.log('\n=== TEST: cancel ===');
   await testCancelTransaction();
+  console.log('\n=== TEST: declined ===');
+  await testDeclinedTransaction();
 })();
 
 async function testAuthTransaction(): Promise<ParsedAuthorizationResponse> {
@@ -111,6 +113,37 @@ async function testCaptureTransaction(): Promise<void> {
   if (response.transactionStatus !== 'SETTLED') {
     console.error(
       `Expected transaction status to be "SETTLED" but received "${response.transactionStatus}"`,
+    );
+  }
+}
+
+async function testDeclinedTransaction(): Promise<void> {
+  console.log(`Authorizing payment using "${StripeConnection.name}"`);
+
+  let response: ParsedAuthorizationResponse | null = null;
+
+  try {
+    response = await StripeConnection.authorize({
+      processorConfig: StripeConnection.configuration,
+      amount: 100,
+      currencyCode: 'GBP',
+      paymentMethod: {
+        expiryMonth: 4,
+        expiryYear: 2022,
+        cardholderName: 'Mr Foo Bar',
+        cvv: '020',
+        cardNumber: '4000000000009995',
+      },
+    });
+  } catch (e) {
+    console.error('Error while authorizing transaction:');
+    console.error(e);
+    process.exit(1);
+  }
+
+  if (response.transactionStatus !== 'DECLINED' || response.declineReason !== 'INSUFFICIENT_FUNDS') {
+    console.error(
+      `Expected transaction status to be "DECLINED" but received "${response.transactionStatus}"`,
     );
   }
 }
